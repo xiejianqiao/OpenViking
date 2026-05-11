@@ -271,7 +271,14 @@ async def delete_data(request: DataDeleteRequest, req: Request):
             collection.delete_all_data()
             return success_response("del data success", {"deleted": "all"}, request=req)
         else:
-            collection.delete_data(primary_keys=primary_keys)
+            # Vector DB may reject oversized delete requests; split into batches.
+            if not primary_keys:
+                return success_response("del data success", {"deleted": 0}, request=req)
+
+            batch_size = 100
+            for i in range(0, len(primary_keys), batch_size):
+                batch = primary_keys[i : i + batch_size]
+                collection.delete_data(primary_keys=batch)
             return success_response("del data success", {"deleted": len(primary_keys)}, request=req)
     except VikingDBException as e:
         return error_response(e.message, e.code.value, request=req)
